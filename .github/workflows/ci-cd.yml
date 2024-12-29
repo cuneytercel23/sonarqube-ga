@@ -1,0 +1,45 @@
+name: CI/CD Workflow
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  docker:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Kodları Checkout Et
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      # 2. Docker Hub Login
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      # 3. Docker Image Build ve Push
+      - name: Build and Push Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKER_USERNAME }}/sonarqube-ga:latest .
+          docker push ${{ secrets.DOCKER_USERNAME }}/sonarqube-ga:latest
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: docker
+
+    steps:
+      # 4. Uzak Sunucuya SSH ile Bağlan ve Docker Compose Çalıştır
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USERNAME }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          script: |
+            cd /home/app
+            docker-compose pull
+            docker-compose up -d
